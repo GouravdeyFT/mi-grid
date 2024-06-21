@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { Fragment, useEffect, useMemo, useState } from 'react';
 import { Button, Input, Select, Space, Typography } from 'antd';
 import {
   MdAdd,
@@ -35,6 +35,7 @@ import {
 import NewColumnWindow from '../NewColumnWindow';
 import Menus from '../Menus';
 import { BsSortAlphaDown, BsSortAlphaDownAlt } from 'react-icons/bs';
+import { useDataGridConfiguration } from '../../DataGridContext';
 
 const { Paragraph, Text } = Typography;
 
@@ -85,6 +86,7 @@ const HeaderColumnOptions = <R, SR>({
   saveVersionHistory,
   ...restProps
 }: Props<R, SR>) => {
+  const { headerMenu } = useDataGridConfiguration();
   const [open, setOpen] = useState(false);
   const [allowRename, setAllowRename] = useState(false);
   const [filterApplied, setFilterApplied] = useState(false);
@@ -94,6 +96,16 @@ const HeaderColumnOptions = <R, SR>({
     InputType | ObjectInputType | null
   >();
   const [columnName, setColumnName] = useState<string | null>(null);
+
+  const isAllowed = useMemo(() => {
+    return (
+      headerMenu.allowSorting ||
+      headerMenu.allowFilter ||
+      headerMenu.allowAddColumn ||
+      headerMenu.allowDeleteColumn ||
+      headerMenu.allowRenameColumn
+    );
+  }, [headerMenu]);
 
   useEffect(() => {
     if (column.title && typeof column.title === 'string') {
@@ -139,7 +151,7 @@ const HeaderColumnOptions = <R, SR>({
   } => {
     const menuItems: MenuItemProps[] = [];
 
-    if (onSort) {
+    if (headerMenu.allowSorting && onSort) {
       menuItems.push({
         icon: <BsSortAlphaDown fontSize={18} />,
         label: `Sort column A to Z`,
@@ -156,7 +168,7 @@ const HeaderColumnOptions = <R, SR>({
       });
     }
 
-    if (onInsertCell) {
+    if (headerMenu.allowAddColumn && onInsertCell) {
       menuItems.push({
         icon: <MdAdd fontSize={18} />,
         label: `Add column`,
@@ -164,7 +176,7 @@ const HeaderColumnOptions = <R, SR>({
       });
     }
 
-    if (onDeleteCells) {
+    if (headerMenu.allowDeleteColumn && onDeleteCells) {
       menuItems.push({
         icon: <MdDeleteOutline fontSize={20} />,
         label: 'Delete column',
@@ -176,7 +188,7 @@ const HeaderColumnOptions = <R, SR>({
       });
     }
 
-    if (onRenameColumn) {
+    if (headerMenu.allowRenameColumn && onRenameColumn) {
       menuItems.push({
         icon: <MdEdit fontSize={16} />,
         label: `Rename column`,
@@ -255,7 +267,7 @@ const HeaderColumnOptions = <R, SR>({
     }
 
     return { items: menuItems, operators: operatorOptions };
-  }, [onInsertCell, onDeleteCells, onRenameColumn]);
+  }, [onInsertCell, onDeleteCells, onRenameColumn, headerMenu]);
 
   const handleApplyClick = () => {
     if (condition && inputVal) {
@@ -306,7 +318,7 @@ const HeaderColumnOptions = <R, SR>({
 
       <Menus items={items} />
 
-      {allowRename && (
+      {headerMenu.allowRenameColumn && allowRename && (
         <StyledFlexRow>
           <Input
             placeholder='Column Name'
@@ -336,125 +348,131 @@ const HeaderColumnOptions = <R, SR>({
         </StyledFlexRow>
       )}
 
-      <StyledFilterContainer>
-        <Paragraph style={{ marginBottom: 0 }} strong>
-          Filter
-        </Paragraph>
-        <StyledSelect
-          placeholder='None'
-          value={condition}
-          onChange={setCondition}
-        >
-          {operators.map((operator) => (
-            <Select.Option key={operator.value} value={operator.value}>
-              {operator.label}
-            </Select.Option>
-          ))}
-        </StyledSelect>
+      {headerMenu.allowFilter && (
+        <Fragment>
+          <StyledFilterContainer>
+            <Paragraph style={{ marginBottom: 0 }} strong>
+              Filter
+            </Paragraph>
+            <StyledSelect
+              placeholder='None'
+              value={condition}
+              onChange={setCondition}
+            >
+              {operators.map((operator) => (
+                <Select.Option key={operator.value} value={operator.value}>
+                  {operator.label}
+                </Select.Option>
+              ))}
+            </StyledSelect>
 
-        {column.dataType === 'number' ? (
-          condition === 'ibt' || condition === 'nibt' ? (
-            <Space>
-              <StyledInputNumber
-                placeholder='Start'
-                value={(inputVal as ObjectInputType)?.start as number}
-                onChange={(newValue) =>
-                  setInputVal((prev) => ({
-                    ...(prev as ObjectInputType),
-                    start: newValue as number,
-                  }))
+            {column.dataType === 'number' ? (
+              condition === 'ibt' || condition === 'nibt' ? (
+                <Space>
+                  <StyledInputNumber
+                    placeholder='Start'
+                    value={(inputVal as ObjectInputType)?.start as number}
+                    onChange={(newValue) =>
+                      setInputVal((prev) => ({
+                        ...(prev as ObjectInputType),
+                        start: newValue as number,
+                      }))
+                    }
+                  />
+                  <StyledInputNumber
+                    placeholder='End'
+                    value={(inputVal as ObjectInputType)?.end as number}
+                    onChange={(newValue) =>
+                      setInputVal((prev) => ({
+                        ...(prev as ObjectInputType),
+                        end: newValue as number,
+                      }))
+                    }
+                  />
+                </Space>
+              ) : (
+                <StyledInputNumber
+                  placeholder='Number'
+                  value={inputVal as number}
+                  onChange={(newValue) => setInputVal(newValue)}
+                />
+              )
+            ) : column.dataType === 'date' ? (
+              condition === 'ibt' || condition === 'nibt' ? (
+                <StyledRangePicker
+                  onChange={(date) =>
+                    setInputVal({
+                      start: date?.[0]?.toISOString() as string,
+                      end: date?.[1]?.toISOString() as string,
+                    })
+                  }
+                />
+              ) : (
+                <StyledDatePicker
+                  placeholder='Date'
+                  onChange={(date) => setInputVal(date?.toISOString())}
+                />
+              )
+            ) : (
+              <Input
+                placeholder='Value'
+                value={inputVal as string}
+                onChange={(event) =>
+                  setInputVal(event.target.value.toString().toLowerCase())
                 }
+                onPressEnter={handleApplyClick}
               />
-              <StyledInputNumber
-                placeholder='End'
-                value={(inputVal as ObjectInputType)?.end as number}
-                onChange={(newValue) =>
-                  setInputVal((prev) => ({
-                    ...(prev as ObjectInputType),
-                    end: newValue as number,
-                  }))
-                }
-              />
-            </Space>
-          ) : (
-            <StyledInputNumber
-              placeholder='Number'
-              value={inputVal as number}
-              onChange={(newValue) => setInputVal(newValue)}
-            />
-          )
-        ) : column.dataType === 'date' ? (
-          condition === 'ibt' || condition === 'nibt' ? (
-            <StyledRangePicker
-              onChange={(date) =>
-                setInputVal({
-                  start: date?.[0]?.toISOString() as string,
-                  end: date?.[1]?.toISOString() as string,
-                })
-              }
-            />
-          ) : (
-            <StyledDatePicker
-              placeholder='Date'
-              onChange={(date) => setInputVal(date?.toISOString())}
-            />
-          )
-        ) : (
-          <Input
-            placeholder='Value'
-            value={inputVal as string}
-            onChange={(event) =>
-              setInputVal(event.target.value.toString().toLowerCase())
-            }
-            onPressEnter={handleApplyClick}
-          />
-        )}
-      </StyledFilterContainer>
+            )}
+          </StyledFilterContainer>
 
-      <StyledActions>
-        <Button
-          type='primary'
-          size='small'
-          shape='round'
-          onClick={handleClearClick}
-          disabled={!condition || !inputVal}
-          ghost
-        >
-          Clear
-        </Button>
+          <StyledActions>
+            <Button
+              type='primary'
+              size='small'
+              shape='round'
+              onClick={handleClearClick}
+              disabled={!condition || !inputVal}
+              ghost
+            >
+              Clear
+            </Button>
 
-        <Button
-          type='primary'
-          size='small'
-          shape='round'
-          onClick={handleApplyClick}
-          disabled={!condition || !inputVal}
-        >
-          Apply
-        </Button>
-      </StyledActions>
+            <Button
+              type='primary'
+              size='small'
+              shape='round'
+              onClick={handleApplyClick}
+              disabled={!condition || !inputVal}
+            >
+              Apply
+            </Button>
+          </StyledActions>
+        </Fragment>
+      )}
     </StyledRoot>
   );
 
   return (
     <React.Fragment>
-      <StyledPopover
-        content={content}
-        trigger='click'
-        overlayStyle={{ zIndex: 1000 }}
-        overlayInnerStyle={{ padding: 0, borderRadius: 12 }}
-        {...restProps}
-        onOpenChange={(visible) => {
-          setOpen(visible);
-          setAllowRename(false);
-        }}
-        open={open}
-      >
-        <StyledMoreHandle className={clsx({ active: open })}>
-          {filterApplied && <MdFilterAlt fontSize={16} />}
-          <MdOutlineMoreVert fontSize={16} />
-        </StyledMoreHandle>
-      </StyledPopover>
+      {isAllowed && (
+        <StyledPopover
+          content={content}
+          trigger='click'
+          overlayStyle={{ zIndex: 1000 }}
+          overlayInnerStyle={{ padding: 0, borderRadius: 12 }}
+          {...restProps}
+          onOpenChange={(visible) => {
+            setOpen(visible);
+            setAllowRename(false);
+          }}
+          open={open}
+        >
+          <StyledMoreHandle className={clsx({ active: open })}>
+            {filterApplied && <MdFilterAlt fontSize={16} />}
+            <MdOutlineMoreVert fontSize={16} />
+          </StyledMoreHandle>
+        </StyledPopover>
+      )}
 
       {column.idx >= 0 && openModal && (
         <NewColumnWindow

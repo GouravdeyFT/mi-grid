@@ -14,6 +14,9 @@ import { StyledCellWrapper } from './style/cell';
 
 const StyledCell = styled(StyledCellWrapper)`
   transition: background-color 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 
   &.serial-no-cell {
     background: ${({ theme }: { theme: any }) => theme.table.headerBgColor};
@@ -66,8 +69,8 @@ const StyledCell = styled(StyledCellWrapper)`
     }
   }
 
-  &::selection,
-  & .serial-no-inner-cell::selection {
+  .editable &::selection,
+  .editable & .serial-no-inner-cell::selection {
     background: transparent;
   }
 
@@ -291,6 +294,23 @@ function Cell<R, SR>({
     column.dataIndex as keyof R,
     cellFormula,
   );
+
+  const cellContents = () =>
+    column.render
+      ? column.render(
+          updatedRow[column.dataIndex as keyof R],
+          updatedRow,
+          rowIdx,
+        )
+      : column.renderCell({
+          column,
+          row: updatedRow,
+          isCellEditable: isEditable,
+          tabIndex: childTabIndex,
+          onRowChange: handleRowChange,
+          rowSelectionType,
+        });
+
   return (
     <StyledCell
       role='gridcell'
@@ -312,22 +332,7 @@ function Cell<R, SR>({
       onMouseEnter={handleDragEnter}
       {...props}
     >
-      <>
-        {column.render
-          ? column.render(
-              updatedRow[column.dataIndex as keyof R],
-              updatedRow,
-              rowIdx,
-            )
-          : column.renderCell({
-              column,
-              row: updatedRow,
-              isCellEditable: isEditable,
-              tabIndex: childTabIndex,
-              onRowChange: handleRowChange,
-              rowSelectionType,
-            })}
-      </>
+      {cellContents()}
     </StyledCell>
   );
 }

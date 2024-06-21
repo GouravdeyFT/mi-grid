@@ -8,6 +8,7 @@ import type { FilterDataType, RenderHeaderCellProps } from '@mi/models/MiTable';
 import { useDefaultRenderers } from './DataGridDefaultRenderersProvider';
 import { FilterFilled, SearchOutlined } from '@ant-design/icons';
 import { appLog } from './utils';
+import { useDataGridConfiguration } from './DataGridContext';
 
 const StyledHeaderRoot = styled.span`
   display: flex;
@@ -62,6 +63,8 @@ export default function renderHeaderCell<R, SR>({
   onSort,
   onClick,
 }: RenderHeaderCellProps<R, SR>) {
+  const gridConfig = useDataGridConfiguration();
+
   return (
     <StyledHeaderRoot>
       {column.sorter ? (
@@ -72,7 +75,12 @@ export default function renderHeaderCell<R, SR>({
           onSort={onSort}
           onClick={onClick}
         >
-          {column.title} ({column.alphaIdx})
+          {column.title}{' '}
+          {gridConfig.allowGridActions &&
+          gridConfig.allowFormula &&
+          column.alphaIdx
+            ? `(${column.alphaIdx})`
+            : ''}
         </SortableHeaderCell>
       ) : (
         <StyledHeaderName
@@ -80,7 +88,12 @@ export default function renderHeaderCell<R, SR>({
           className='rdg-header-name'
           onClick={onClick}
         >
-          {column.title} {column.idx > 0 ? `(${column.alphaIdx})` : ''}
+          {column.title}{' '}
+          {gridConfig.allowGridActions &&
+          gridConfig.allowFormula &&
+          column.alphaIdx
+            ? `(${column.alphaIdx})`
+            : ''}
         </StyledHeaderName>
       )}
 

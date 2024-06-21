@@ -101,7 +101,7 @@ export interface DataGridProps<R, SR = unknown, K extends Key = Key>
     Maybe<React.Dispatch<React.SetStateAction<FilterType>>>
   >;
   defaultColumnOptions?: Maybe<DefaultColumnOptions<R, SR>>;
-  onFill?: Maybe<(event: FillEvent<R>) => R>;
+  // onFill?: Maybe<(event: FillEvent<R>) => R>; // Removed by Babulal Kumawat
   onCopy?: Maybe<(event: CopyEvent<R>) => void>;
   onPaste?: Maybe<(event: PasteEvent<R>) => R>;
 
@@ -702,6 +702,61 @@ export interface UndoRedoProcessProps {
     cell?: GridCellStyleType[];
   };
 }
+
+export interface TableCellItemProps {
+  idx: number;
+  title: string;
+  column_key: string;
+}
+
+export type ContextMenuProps = {
+  allowCopy?: boolean;
+  allowCut?: boolean;
+  allowPaste?: boolean;
+  allowUndo?: boolean;
+  allowRedo?: boolean;
+  allowInsertRows?: boolean;
+  allowDeleteRows?: boolean;
+  allowAddColumns?: boolean;
+  allowDeleteColumns?: boolean;
+};
+
+export type HeaderMenuProps = {
+  allowSorting?: boolean;
+  allowAddColumn?: boolean;
+  allowRenameColumn?: boolean;
+  allowDeleteColumn?: boolean;
+  allowFilter?: boolean;
+};
+
+export type EditorToolbarProps = {
+  allowBold?: boolean;
+  allowItalic?: boolean;
+  allowUnderline?: boolean;
+  allowStrikeThrough?: boolean;
+  allowFillColor?: boolean;
+  allowTextColor?: boolean;
+  allowUndo?: boolean;
+  allowRedo?: boolean;
+  allowFormula?: boolean;
+  allowFormulaInput?: boolean;
+};
+
+export type GridConfiguration = {
+  allowGridActions?: boolean;
+  showSerialNoRow?: boolean;
+  allowRangeSelection?: boolean;
+  allowEditCell?: boolean;
+  allowUndoRedo?: boolean;
+  allowFormula?: boolean;
+  allowFindReplace?: boolean;
+  allowFindRecord?: boolean;
+  allowContextMenu: true;
+  allowEditorToolbar?: boolean;
+  contextMenu: ContextMenuProps;
+  headerMenu: HeaderMenuProps;
+  editorToolbar: EditorToolbarProps;
+};
 
 export interface TableCellItemProps {
   idx: number;

@@ -23,8 +23,9 @@ export const StyledDataGrid = styled.div`
   overflow-x: auto;
   overflow-y: auto;
   background-color: ${({ theme }: { theme: any }) => theme.common.paper};
+  padding-bottom: 10px;
   margin-bottom: -10px;
-  user-select: none;
+  // user-select: none;
   // scrollbar-width: none;
 
   /* needed on Firefox */
@@ -57,6 +58,10 @@ export const StyledDataGrid = styled.div`
     & ${StyledRowWrapper} {
       cursor: move;
     }
+  }
+
+  &.editable {
+    user-select: none;
   }
 `;
 

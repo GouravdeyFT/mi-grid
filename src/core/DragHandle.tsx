@@ -1,7 +1,7 @@
 import styled from 'styled-components';
 import clsx from 'clsx';
 
-import type { CalculatedColumn, FillEvent, Position } from '@mi/models/MiTable';
+import type { CalculatedColumn, Position } from '@mi/models/MiTable';
 import type { DataGridProps, SelectCellState } from './DataGrid';
 import { getCellStyle } from './utils';
 
@@ -39,7 +39,6 @@ interface Props<R, SR>
   latestDraggedOverRowIdx: React.MutableRefObject<number | undefined>;
   isCellEditable: (position: Position) => boolean;
   onClick: () => void;
-  onFill: (event: FillEvent<R>) => R;
   setDragging: (isDragging: boolean) => void;
   setDraggedOverRowIdx: (overRowIdx: number | undefined) => void;
 }
@@ -55,7 +54,6 @@ export default function DragHandle<R, SR>({
   latestDraggedOverRowIdx,
   isCellEditable,
   onRowsChange,
-  onFill,
   onClick,
   setDragging,
   setDraggedOverRowIdx,
@@ -106,11 +104,11 @@ export default function DragHandle<R, SR>({
     const indexes: number[] = [];
     for (let i = startRowIdx; i < endRowIdx; i++) {
       if (isCellEditable({ rowIdx: i, idx })) {
-        const updatedRow = onFill({
-          columnKey: column.dataIndex,
-          sourceRow,
-          targetRow: rows[i],
-        });
+        const updatedRow = {
+          ...rows[i],
+          [column.dataIndex]: sourceRow[column.dataIndex as keyof R],
+        };
+
         if (updatedRow !== rows[i]) {
           updatedRows[i] = updatedRow;
           indexes.push(i);

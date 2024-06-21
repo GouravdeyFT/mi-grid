@@ -195,9 +195,17 @@ export function useCalculatedColumns<R, SR>({
     );
 
     const colSpanColumns: CalculatedColumn<R, SR>[] = [];
+    let counter = 0;
     columns.forEach((column, idx) => {
       column.idx = idx;
-      column.alphaIdx = idx > 0 ? getHeaderCellAlphaIdx(idx - 1) : '';
+      if (
+        column.dataIndex !== 'serialNoRow' &&
+        column.dataIndex !== 'select-row'
+      ) {
+        column.alphaIdx = getHeaderCellAlphaIdx(counter);
+        counter++;
+      }
+      // column.alphaIdx = idx > 0 ? getHeaderCellAlphaIdx(idx - 1) : '';
       updateColumnParent(column, idx, 0);
 
       if (column.colSpan != null) {

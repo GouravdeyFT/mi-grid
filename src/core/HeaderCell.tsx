@@ -27,6 +27,7 @@ import { StyledCellWrapper } from './style/cell';
 import { useState } from 'react';
 import HeaderColumnOptions from './components/HeaderColumnOptions';
 import { LocalFilter } from '@mi/models/MiTable';
+import { useDataGridConfiguration } from './DataGridContext';
 
 export const ResizeHandleClassname = styled.div`
   cursor: col-resize;
@@ -85,10 +86,6 @@ const CellResizable = styled(StyledCellWrapper)`
     ${ResizeHandleClassname} {
       opacity: 1;
     }
-  }
-
-  &:first-child ${ResizeHandleClassname} {
-    display: none;
   }
 
   &:last-child ${ResizeHandleClassname} {
@@ -163,6 +160,7 @@ export default function HeaderCell<R, SR>({
   isResizedColumn,
   isPartiallySelected,
 }: HeaderCellProps<R, SR>) {
+  const gridConfig = useDataGridConfiguration();
   const [isDragging, setIsDragging] = useState(false);
   const [isOver, setIsOver] = useState(false);
   const isRtl = direction === 'rtl';
@@ -307,19 +305,18 @@ export default function HeaderCell<R, SR>({
   }
 
   function onClick(/*event: React.MouseEvent<HTMLSpanElement>*/) {
-    let firefoxAgent = navigator.userAgent.indexOf('Firefox') > -1;
-    if (firefoxAgent) {
-      if (!isResizedColumn.current) {
-        clickHandler();
+    if (gridConfig.allowGridActions && gridConfig.allowRangeSelection) {
+      let firefoxAgent = navigator.userAgent.indexOf('Firefox') > -1;
+      if (firefoxAgent) {
+        if (!isResizedColumn.current) {
+          clickHandler();
+        } else {
+          isResizedColumn.current = false;
+        }
       } else {
-        isResizedColumn.current = false;
+        clickHandler();
       }
-    } else {
-      clickHandler();
     }
-    // if (column.sorter) {
-    //   onSort(event.ctrlKey || event.metaKey);
-    // }
   }
 
   function onDoubleClick() {

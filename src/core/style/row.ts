@@ -2,7 +2,8 @@ import styled from 'styled-components';
 
 export const StyledRowWrapper = styled.div`
   display: contents;
-  line-height: var(--rdg-row-height);
+  // line-height: var(--rdg-row-height);
+  min-height: var(--rdg-row-height);
 
   &.row-dragging {
     opacity: 0.5;

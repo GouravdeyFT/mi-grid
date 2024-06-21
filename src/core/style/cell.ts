@@ -1,4 +1,5 @@
 import styled from 'styled-components';
+import { Typography } from 'antd';
 
 export const StyledCellWrapper = styled.div<{
   theme: any;
@@ -51,6 +52,13 @@ export const StyledCellWrapper = styled.div<{
   .left-data-scrolled &.rdg-cell-frozen-last {
     box-shadow: calc(5px * var(--rdg-sign)) 0 5px -2px rgba(136, 136, 136, 0.3);
   }
+`;
+
+export const StyledCellContentWrapper = styled(Typography.Paragraph)`
+  margin-bottom: 0;
+  position: relative;
+  top: 50%;
+  transform: translateY(-50%);
 `;
 
 export const cellClassname = 'rdg-cell';

@@ -19,6 +19,7 @@ import NewColumnWindow from '../NewColumnWindow';
 import { SelectCellState } from '../../DataGrid';
 import Menus from '../Menus';
 import { getMinMaxIdx } from '../../utils';
+import { useDataGridConfiguration } from '../../DataGridContext';
 
 const { Text } = Typography;
 
@@ -81,12 +82,18 @@ const ContextWindow = ({
   onPaste,
   ...restProps
 }: Props) => {
+  const { contextMenu } = useDataGridConfiguration();
+
   const [openModal, setOpenModal] = useState(false);
   const { idx, rowIdx } = selectedPosition;
   const [startIdx, endIdx] = getMinMaxIdx(idx, draggedOverCellIdx);
   const totalSelectedCells = endIdx - startIdx + 1;
   const [startRowIdx, endRowIdx] = getMinMaxIdx(rowIdx, draggedOverRowIdx);
   const totalSelectedRows = endRowIdx - startRowIdx + 1;
+
+  const isAllowed = useMemo(() => {
+    return Object.values(contextMenu).some((item) => item);
+  }, [contextMenu]);
 
   /**
    * Handle Cut
@@ -153,39 +160,42 @@ const ContextWindow = ({
     const menuItems: MenuItemProps[] = [];
 
     if (totalSelectedCells > 0) {
-      menuItems.push({
-        icon: <MdContentCut fontSize={16} />,
-        label: (
-          <Fragment>
-            Cut <Text type='secondary'>(Ctrl + X)</Text>
-          </Fragment>
-        ),
-        onClick: handleCut,
-      });
+      if (contextMenu.allowCut)
+        menuItems.push({
+          icon: <MdContentCut fontSize={16} />,
+          label: (
+            <Fragment>
+              Cut <Text type='secondary'>(Ctrl + X)</Text>
+            </Fragment>
+          ),
+          onClick: handleCut,
+        });
 
-      menuItems.push({
-        icon: <MdContentCopy fontSize={16} />,
-        label: (
-          <Fragment>
-            Copy <Text type='secondary'>(Ctrl + C)</Text>
-          </Fragment>
-        ),
-        onClick: handleCopy,
-      });
+      if (contextMenu.allowCopy)
+        menuItems.push({
+          icon: <MdContentCopy fontSize={16} />,
+          label: (
+            <Fragment>
+              Copy <Text type='secondary'>(Ctrl + C)</Text>
+            </Fragment>
+          ),
+          onClick: handleCopy,
+        });
 
-      menuItems.push({
-        icon: <MdContentPaste fontSize={16} />,
-        label: (
-          <Fragment>
-            Paste <Text type='secondary'>(Ctrl + V)</Text>
-          </Fragment>
-        ),
-        onClick: handlePaste,
-        // disabled: !isDataCopied,
-      });
+      if (contextMenu.allowPaste)
+        menuItems.push({
+          icon: <MdContentPaste fontSize={16} />,
+          label: (
+            <Fragment>
+              Paste <Text type='secondary'>(Ctrl + V)</Text>
+            </Fragment>
+          ),
+          onClick: handlePaste,
+          // disabled: !isDataCopied,
+        });
     }
 
-    if (onUndo) {
+    if (contextMenu.allowUndo && onUndo) {
       menuItems.push({
         icon: <MdUndo fontSize={18} />,
         label: (
@@ -198,7 +208,7 @@ const ContextWindow = ({
       });
     }
 
-    if (onRedo) {
+    if (contextMenu.allowRedo && onRedo) {
       menuItems.push({
         icon: <MdRedo fontSize={18} />,
         label: (
@@ -211,7 +221,7 @@ const ContextWindow = ({
       });
     }
 
-    if (onInsertRows) {
+    if (contextMenu.allowInsertRows && onInsertRows) {
       menuItems.push({
         icon: <MdAdd fontSize={18} />,
         label:
@@ -231,7 +241,7 @@ const ContextWindow = ({
       });
     }
 
-    if (onDeleteRows && rows.length > 1) {
+    if (contextMenu.allowDeleteRows && onDeleteRows && rows.length > 1) {
       menuItems.push({
         icon: <MdDeleteOutline fontSize={20} />,
         label:
@@ -248,7 +258,7 @@ const ContextWindow = ({
       });
     }
 
-    if (onInsertCell && idx > 0) {
+    if (contextMenu.allowAddColumns && onInsertCell && idx > 0) {
       menuItems.push({
         icon: <MdAdd fontSize={18} />,
         label: `Add column`,
@@ -256,7 +266,12 @@ const ContextWindow = ({
       });
     }
 
-    if (onDeleteCells && columns.length > 1 && idx > 0) {
+    if (
+      contextMenu.allowDeleteColumns &&
+      onDeleteCells &&
+      columns.length > 1 &&
+      idx > 0
+    ) {
       menuItems.push({
         icon: <MdDeleteOutline fontSize={20} />,
         label:
@@ -274,11 +289,11 @@ const ContextWindow = ({
     }
 
     return menuItems;
-  }, [rows, startIdx, endIdx, startRowIdx, endRowIdx, columns]);
+  }, [rows, startIdx, endIdx, startRowIdx, endRowIdx, columns, contextMenu]);
 
   return (
     <ModalWindow
-      open={open}
+      open={isAllowed && open}
       onCancel={onCloseModal}
       // maskClosable={false}
       mask={false}

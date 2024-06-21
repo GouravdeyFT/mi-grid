@@ -25,7 +25,7 @@ import { SELECT_COLUMN_KEY } from './Columns';
 export interface TreeDataGridProps<R, SR = unknown, K extends Key = Key>
   extends Omit<
     DataGridProps<R, SR, K>,
-    'columns' | 'role' | 'aria-rowcount' | 'rowHeight' | 'onFill'
+    'columns' | 'role' | 'aria-rowcount' | 'rowHeight' // | 'onFill'
   > {
   columns: readonly Column<R, SR>[];
   rowHeight?: Maybe<number | ((args: RowHeightArgs<R>) => number)>;

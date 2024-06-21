@@ -1,6 +1,7 @@
 import type { CSSProperties, Key, KeyboardEvent, RefAttributes } from 'react';
 import React, {
   forwardRef,
+  Fragment,
   isValidElement,
   useCallback,
   useEffect,
@@ -52,7 +53,9 @@ import type {
   CopyClipboardProps,
   CopyEvent,
   Direction,
-  FillEvent,
+  FilterType,
+  GridCellStyleType,
+  GridFormulaType,
   GridRowColStyleType,
   LocalFilter,
   Maybe,
@@ -65,11 +68,7 @@ import type {
   TableCellItemProps,
   UndoRedoProcessProps,
 } from '@mi/models/MiTable';
-import {
-  type FilterType,
-  GridCellStyleType,
-  GridFormulaType,
-} from '@mi/models/MiTable';
+import { GridConfiguration } from '@mi/models/MiTable';
 import { renderCheckbox as defaultRenderCheckbox } from './cellRenderers';
 import {
   DataGridDefaultRenderersProvider,
@@ -99,6 +98,7 @@ import FindAndReplace from './components/FindAndReplace';
 import FindRecord from './components/FindRecord';
 import { evaluateFormula, isCorrectFormula } from './utils/calculationUtils';
 import EditorToolbar from './components/EditorToolbar';
+import { DataGridProvider, defaultConfigurations } from './DataGridContext';
 
 export interface SelectCellState extends Position {
   readonly mode: 'SELECT';
@@ -148,6 +148,7 @@ const serialNoCol = {
   fixed: 'left',
   align: 'center',
   width: '60px',
+  resizable: false,
   render: (text: number) => <div className='serial-no-inner-cell'>{text}</div>,
 };
 
@@ -203,7 +204,7 @@ export interface DataGridProps<R, SR = unknown, K extends Key = Key>
   sortColumns?: Maybe<readonly SortColumn[]>;
   onSortColumnsChange?: Maybe<(sortColumns: SortColumn[]) => void>;
   defaultColumnOptions?: Maybe<DefaultColumnOptions<R, SR>>;
-  onFill?: Maybe<(event: FillEvent<R>) => R>;
+  // onFill?: Maybe<(event: FillEvent<R>) => R>; // Removed by Babulal Kumawat
   onCopy?: Maybe<(event: CopyEvent<R>) => void>;
   onPaste?: Maybe<(event: PasteEvent<R>) => R>;
 
@@ -270,8 +271,6 @@ export interface DataGridProps<R, SR = unknown, K extends Key = Key>
   /*Add by Babulal Kumawat*/
   hidePagination?: boolean;
   autoRowHeight?: boolean;
-  enableContextMenu?: boolean;
-  showSerialNoRow?: boolean;
   onInsertRows?: (
     rowIdx: number,
     count: number,
@@ -304,6 +303,8 @@ export interface DataGridProps<R, SR = unknown, K extends Key = Key>
   setRowColumnStyles?: React.Dispatch<
     React.SetStateAction<GridRowColStyleType>
   >;
+  allowGridActions?: boolean;
+  configuration?: GridConfiguration;
 }
 
 const regUniversalNewLine = /^(\r\n|\n\r|\r|\n)/;
@@ -349,7 +350,6 @@ function DataGrid<R, SR, K extends Key>(
     onScroll,
     onColumnResize,
     onColumnsReorder,
-    onFill,
     onCopy,
     onPaste,
     // Toggles and modes
@@ -376,8 +376,6 @@ function DataGrid<R, SR, K extends Key>(
     border,
     hidePagination = false,
     autoRowHeight = false,
-    enableContextMenu = false,
-    showSerialNoRow = false,
     onInsertRows,
     onDeleteRows,
     onInsertCell,
@@ -390,20 +388,31 @@ function DataGrid<R, SR, K extends Key>(
     rowColumnStyles,
     setCellStyles,
     setRowColumnStyles,
+    allowGridActions = false,
+    configuration,
   } = props;
 
   /**
    * defaults
    */
+  const gridConfig = useMemo(
+    () => ({
+      ...defaultConfigurations,
+      ...configuration,
+      allowGridActions,
+    }),
+    [configuration, allowGridActions],
+  );
+
   const rows: readonly R[] = useMemo(
     () =>
-      showSerialNoRow
+      allowGridActions && gridConfig.showSerialNoRow
         ? [...rawRows].map((item, index) => ({
             ...item,
             serialNoRow: index + 1,
           }))
         : rawRows,
-    [rawRows],
+    [rawRows, gridConfig],
   );
 
   const defaultRenderers = useDefaultRenderers<R, SR>();
@@ -504,7 +513,8 @@ function DataGrid<R, SR, K extends Key>(
     totalLeftFixedColumnWidth,
   } = useCalculatedColumns({
     rawColumns:
-      showSerialNoRow &&
+      allowGridActions &&
+      gridConfig.showSerialNoRow &&
       rawColumns?.length > 0 &&
       !rawColumns.find(
         (item) => (item as Column<R, SR>).dataIndex === 'serialNoRow',
@@ -683,7 +693,12 @@ function DataGrid<R, SR, K extends Key>(
   }, []);
 
   useEffect(() => {
-    if (undoRef.current.length === 0 && columns.length > 0) {
+    if (
+      allowGridActions &&
+      gridConfig.allowUndoRedo &&
+      undoRef.current.length === 0 &&
+      columns.length > 0
+    ) {
       saveVersionHistory({
         rows: [...rows],
         columns: [...columns],
@@ -692,7 +707,7 @@ function DataGrid<R, SR, K extends Key>(
         styles: { ...rowColumnStyles, cell: cellStyles },
       });
     }
-  }, [columns]);
+  }, [columns, allowGridActions, gridConfig]);
 
   useEffect(() => {
     const scrollableNode = scrollableNodeRef.current as HTMLElement;
@@ -832,26 +847,34 @@ function DataGrid<R, SR, K extends Key>(
   }
 
   function onUndo() {
-    const X = undoRef.current[undoRef.current.length - 1];
-    const Y = undoRef.current[undoRef.current.length - 2];
-    undoRef.current.pop();
-    redoRef.current.push(X);
-    setCurrentData(Y);
+    if (allowGridActions && gridConfig.allowUndoRedo) {
+      const X = undoRef.current[undoRef.current.length - 1];
+      const Y = undoRef.current[undoRef.current.length - 2];
+      undoRef.current.pop();
+      redoRef.current.push(X);
+      setCurrentData(Y);
+    }
   }
 
   function onRedo() {
-    let X = redoRef.current[redoRef.current.length - 1];
-    redoRef.current.pop();
-    undoRef.current.push(X);
-    setCurrentData(X);
+    if (allowGridActions && gridConfig.allowUndoRedo) {
+      let X = redoRef.current[redoRef.current.length - 1];
+      redoRef.current.pop();
+      undoRef.current.push(X);
+      setCurrentData(X);
+    }
   }
 
   function saveVersionHistory(data: UndoRedoProcessProps) {
-    undoRef.current.push({
-      ...data,
-      columns: data.columns.filter((item) => item.dataIndex !== 'serialNoRow'),
-    });
-    redoRef.current = [];
+    if (allowGridActions && gridConfig.allowUndoRedo) {
+      undoRef.current.push({
+        ...data,
+        columns: data.columns.filter(
+          (item) => item.dataIndex !== 'serialNoRow',
+        ),
+      });
+      redoRef.current = [];
+    }
   }
 
   function handleCellEditFinish(row: R, rowIdx: number) {
@@ -1171,7 +1194,7 @@ function DataGrid<R, SR, K extends Key>(
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     const { idx, rowIdx, mode } = selectedPosition;
-    if (mode === 'EDIT') return;
+    if (mode === 'EDIT' || !allowGridActions) return;
 
     if (onCellKeyDown && isRowIdxWithinViewportBounds(rowIdx)) {
       const row = rows[rowIdx];
@@ -1309,63 +1332,65 @@ function DataGrid<R, SR, K extends Key>(
     position: SelectCellState | EditCellState<R>,
     customValue?: string,
   ) {
-    const dataIndex = columns[position.idx].dataIndex as keyof R;
-    const rowId = rows[position.rowIdx]?.[rowKey as keyof R];
-    const selectedCellValue =
-      customValue ??
-      ((position as EditCellState<R>)?.row?.[dataIndex] as string);
+    if (gridConfig.allowFormula) {
+      const dataIndex = columns[position.idx].dataIndex as keyof R;
+      const rowId = rows[position.rowIdx]?.[rowKey as keyof R];
+      const selectedCellValue =
+        customValue ??
+        ((position as EditCellState<R>)?.row?.[dataIndex] as string);
 
-    if (formulas) {
-      const foundFormulaIndex = formulas.findIndex(
-        (item) => item.colKey === dataIndex && item.rowKey === rowId,
-      );
-
-      if (isCorrectFormula(String(selectedCellValue))) {
-        if (foundFormulaIndex >= 0) {
-          // if formula is found at index and formula is updated
-
-          let updatedTableFormula = [...formulas];
-          updatedTableFormula[foundFormulaIndex] = {
-            ...updatedTableFormula[foundFormulaIndex],
-            formula: selectedCellValue as string,
-          };
-          updateCellWizeFormula(
-            updatedTableFormula,
-            position,
-            dataIndex,
-            selectedCellValue as string,
-          );
-        } else {
-          // if formula is not found at index and formula is added
-
-          const newFormulaObj: GridFormulaType = {
-            colKey: dataIndex as string,
-            rowKey: rowId as string | number,
-            formula: selectedCellValue as string,
-          };
-          const updatedTableFormula = [...formulas, newFormulaObj];
-
-          updateCellWizeFormula(
-            updatedTableFormula,
-            position,
-            dataIndex,
-            selectedCellValue as string,
-          );
-        }
-      } else if (foundFormulaIndex >= 0) {
-        // if formula is found at index and is replaced with non-formula value
-
-        const updatedTableFormula = formulas.filter(
-          (_, index) => index !== foundFormulaIndex,
+      if (formulas) {
+        const foundFormulaIndex = formulas.findIndex(
+          (item) => item.colKey === dataIndex && item.rowKey === rowId,
         );
-        setFormulas?.(updatedTableFormula);
-        saveVersionHistory({
-          rows: [...rows],
-          columns: [...columns],
-          sortColumns: sortColumns ? [...sortColumns] : [],
-          formulas: updatedTableFormula,
-          styles: { ...rowColumnStyles, cell: cellStyles },
-        });
+
+        if (isCorrectFormula(String(selectedCellValue))) {
+          if (foundFormulaIndex >= 0) {
+            // if formula is found at index and formula is updated
+
+            let updatedTableFormula = [...formulas];
+            updatedTableFormula[foundFormulaIndex] = {
+              ...updatedTableFormula[foundFormulaIndex],
+              formula: selectedCellValue as string,
+            };
+            updateCellWizeFormula(
+              updatedTableFormula,
+              position,
+              dataIndex,
+              selectedCellValue as string,
+            );
+          } else {
+            // if formula is not found at index and formula is added
+
+            const newFormulaObj: GridFormulaType = {
+              colKey: dataIndex as string,
+              rowKey: rowId as string | number,
+              formula: selectedCellValue as string,
+            };
+            const updatedTableFormula = [...formulas, newFormulaObj];
+
+            updateCellWizeFormula(
+              updatedTableFormula,
+              position,
+              dataIndex,
+              selectedCellValue as string,
+            );
+          }
+        } else if (foundFormulaIndex >= 0) {
+          // if formula is found at index and is replaced with non-formula value
+
+          const updatedTableFormula = formulas.filter(
+            (_, index) => index !== foundFormulaIndex,
+          );
+          setFormulas?.(updatedTableFormula);
+          saveVersionHistory({
+            rows: [...rows],
+            columns: [...columns],
+            sortColumns: sortColumns ? [...sortColumns] : [],
+            formulas: updatedTableFormula,
+            styles: { ...rowColumnStyles, cell: cellStyles },
+          });
+        }
       }
     }
   }
@@ -1697,11 +1722,16 @@ function DataGrid<R, SR, K extends Key>(
     setDraggedOverRowIdx(undefined);
   }, []);
 
-  const selectSerialNoRow = useCallback((cellIdx?: number, rowIdx?: number) => {
-    setDraggedOverCellIdx(cellIdx);
-    setDraggedOverRowIdx(rowIdx);
-    setDragging(false);
-  }, []);
+  const selectSerialNoRow = useCallback(
+    (cellIdx?: number, rowIdx?: number) => {
+      if (allowGridActions && gridConfig.allowRangeSelection) {
+        setDraggedOverCellIdx(cellIdx);
+        setDraggedOverRowIdx(rowIdx);
+        setDragging(false);
+      }
+    },
+    [gridConfig, allowGridActions],
+  );
 
   const onContextMenuClick = (
     args: CellClickArgs<R, SR>,
@@ -1709,7 +1739,7 @@ function DataGrid<R, SR, K extends Key>(
   ) => {
     if (onCellContextMenuLatest) {
       onCellContextMenuLatest(args, event);
-    } else if (enableContextMenu) {
+    } else if (gridConfig.allowContextMenu) {
       event.preventGridDefault();
       // Do not show the default context menu
       event.preventDefault();
@@ -1789,7 +1819,7 @@ function DataGrid<R, SR, K extends Key>(
     position: Position | SelectCellState,
     enableEditor?: Maybe<boolean>,
   ): void {
-    if (!isCellWithinSelectionBounds(position)) return;
+    if (!isCellWithinSelectionBounds(position) || !allowGridActions) return;
     commitEditorChanges();
 
     const row = rows[position.rowIdx];
@@ -1862,6 +1892,8 @@ function DataGrid<R, SR, K extends Key>(
   }
 
   function navigate(event: KeyboardEvent<HTMLDivElement>) {
+    if (!allowGridActions) return;
+
     const { key, shiftKey } = event;
     let cellNavigationMode: CellNavigationMode = 'NONE';
     if (key === 'Tab') {
@@ -1952,7 +1984,7 @@ function DataGrid<R, SR, K extends Key>(
 
   function renderDragHandle() {
     if (
-      onFill == null ||
+      !gridConfig.allowEditCell ||
       selectedPosition.mode === 'EDIT' ||
       !isCellWithinViewportBounds(selectedPosition)
     ) {
@@ -1994,7 +2026,6 @@ function DataGrid<R, SR, K extends Key>(
           });
         }}
         onClick={focusCellOrCellContent}
-        onFill={onFill}
         setDragging={(isActive) => {
           setDraggingLocked(isActive);
           setDragging(isActive);
@@ -2024,6 +2055,7 @@ function DataGrid<R, SR, K extends Key>(
 
   function getCellEditor(rowIdx: number) {
     if (
+      !gridConfig.allowEditCell ||
       selectedPosition.rowIdx !== rowIdx ||
       selectedPosition.mode === 'SELECT'
     )
@@ -2182,7 +2214,10 @@ function DataGrid<R, SR, K extends Key>(
               : undefined,
           selectedCellIdx: selectedRowIdx === rowIdx ? selectedIdx : undefined,
           draggedOverCellIdx: getDraggedOverCellIdx(rowIdx),
-          setDraggedOverRowIdx: isDragging ? setDraggedOverRowIdx : undefined,
+          setDraggedOverRowIdx:
+            allowGridActions && gridConfig.allowRangeSelection && isDragging
+              ? setDraggedOverRowIdx
+              : undefined,
           onRowChange: handleFormatterRowChangeLatest,
           selectCell: selectCellLatest,
           selectedCellEditor: getCellEditor(rowIdx),
@@ -2193,7 +2228,12 @@ function DataGrid<R, SR, K extends Key>(
           autoRowHeight,
           setDragging: setDragging,
           setDraggedOverCellIdx:
-            isDragging && !isDraggingLocked ? setDraggedOverCellIdx : undefined,
+            allowGridActions &&
+            gridConfig.allowRangeSelection &&
+            isDragging &&
+            !isDraggingLocked
+              ? setDraggedOverCellIdx
+              : undefined,
           selectedCellRange: getSelectedCellRange(rowIdx),
           clipboardData: clipboardData,
           latestDraggedOverCellIdx: latestDraggedOverCellIdx,
@@ -2265,316 +2305,336 @@ function DataGrid<R, SR, K extends Key>(
 
   return (
     <React.Fragment>
-      <EditorToolbar
-        rows={rows}
-        columns={columns}
-        cellSavedStyles={cellStyles as GridCellStyleType[]}
-        rowKeyId={rowKeyId}
-        selectedPosition={selectedPosition as SelectCellState}
-        onStylePropsChange={applyStyleProps}
-        canUndo={undoRef.current?.length > 1}
-        onUndo={onUndo}
-        canRedo={redoRef.current?.length > 0}
-        onRedo={onRedo}
-        draggedOverCellIdx={draggedOverCellIdx}
-        draggedOverRowIdx={draggedOverRowIdx}
-        formulas={formulas as GridFormulaType[]}
-        onUpdateFormula={updateFormulaChanges}
-      />
-
-      <StyledDataGrid
-        id={id}
-        role={role}
-        aria-label={ariaLabel}
-        aria-labelledby={ariaLabelledBy}
-        aria-describedby={ariaDescribedBy}
-        aria-multiselectable={isSelectable ? true : undefined}
-        aria-colcount={columns.length}
-        aria-rowcount={ariaRowCount}
-        className={clsx(
-          rootClassname,
-          {
-            [viewportDraggingClassname]:
-              isDragging && latestDraggedOverRowIdx.current !== undefined,
-          },
-          className,
+      <DataGridProvider value={gridConfig}>
+        {allowGridActions && gridConfig.allowEditorToolbar && (
+          <EditorToolbar
+            rows={rows}
+            columns={columns}
+            cellSavedStyles={cellStyles as GridCellStyleType[]}
+            rowKeyId={rowKeyId}
+            selectedPosition={selectedPosition as SelectCellState}
+            onStylePropsChange={applyStyleProps}
+            canUndo={undoRef.current?.length > 1}
+            onUndo={onUndo}
+            canRedo={redoRef.current?.length > 0}
+            onRedo={onRedo}
+            draggedOverCellIdx={draggedOverCellIdx}
+            draggedOverRowIdx={draggedOverRowIdx}
+            formulas={formulas as GridFormulaType[]}
+            onUpdateFormula={updateFormulaChanges}
+          />
         )}
-        style={
-          {
-            ...style,
-            // set scrollPadding to correctly position non-sticky cells after scrolling
-            scrollPaddingInlineStart:
-              selectedPosition.idx > lastLeftFixedColumnIndex ||
-              scrollToPosition?.idx !== undefined
-                ? `${totalLeftFixedColumnWidth}px`
-                : undefined,
-            scrollPaddingBlock:
-              isRowIdxWithinViewportBounds(selectedPosition.rowIdx) ||
-              scrollToPosition?.rowIdx !== undefined
-                ? `${
-                    headerRowHeight + topSummaryRowsCount * summaryRowHeight
-                  }px ${bottomSummaryRowsCount * summaryRowHeight}px`
-                : undefined,
-            gridTemplateColumns,
-            gridTemplateRows: templateRows,
-            '--rdg-header-row-height': `${headerRowHeight}px`,
-            '--rdg-summary-row-height': `${summaryRowHeight}px`,
-            '--rdg-sign': isRtl ? -1 : 1,
-            '--rdg-sign-right': isRtl ? 1 : -1,
-            ...layoutCssVars,
-          } as unknown as React.CSSProperties
-        }
-        dir={direction}
-        ref={gridRef}
-        onScroll={handleScroll}
-        onKeyDown={handleKeyDown}
-        data-testid={testId}
-        /*onPaste={handleGridPaste}
+
+        <StyledDataGrid
+          id={id}
+          role={role}
+          aria-label={ariaLabel}
+          aria-labelledby={ariaLabelledBy}
+          aria-describedby={ariaDescribedBy}
+          aria-multiselectable={isSelectable ? true : undefined}
+          aria-colcount={columns.length}
+          aria-rowcount={ariaRowCount}
+          className={clsx(
+            rootClassname,
+            {
+              [viewportDraggingClassname]:
+                isDragging && latestDraggedOverRowIdx.current !== undefined,
+              editable: allowGridActions,
+            },
+            className,
+          )}
+          style={
+            {
+              ...style,
+              // set scrollPadding to correctly position non-sticky cells after scrolling
+              scrollPaddingInlineStart:
+                selectedPosition.idx > lastLeftFixedColumnIndex ||
+                scrollToPosition?.idx !== undefined
+                  ? `${totalLeftFixedColumnWidth}px`
+                  : undefined,
+              scrollPaddingBlock:
+                isRowIdxWithinViewportBounds(selectedPosition.rowIdx) ||
+                scrollToPosition?.rowIdx !== undefined
+                  ? `${
+                      headerRowHeight + topSummaryRowsCount * summaryRowHeight
+                    }px ${bottomSummaryRowsCount * summaryRowHeight}px`
+                  : undefined,
+              gridTemplateColumns,
+              gridTemplateRows: templateRows,
+              '--rdg-header-row-height': `${headerRowHeight}px`,
+              '--rdg-summary-row-height': `${summaryRowHeight}px`,
+              '--rdg-sign': isRtl ? -1 : 1,
+              '--rdg-sign-right': isRtl ? 1 : -1,
+              ...layoutCssVars,
+            } as unknown as React.CSSProperties
+          }
+          dir={direction}
+          ref={gridRef}
+          onScroll={handleScroll}
+          onKeyDown={handleKeyDown}
+          data-testid={testId}
+          /*onPaste={handleGridPaste}
         onCopy={() => handleGridCopy()}
         onCut={() => handleGridCopy(handleGridCut)}*/
-      >
-        <DataGridDefaultRenderersProvider value={defaultGridComponents}>
-          <RowSelectionChangeProvider value={selectRowLatest}>
-            <RowSelectionProvider value={allRowsSelected}>
-              {Array.from(
-                { length: groupedColumnHeaderRowsCount },
-                (_, index) => (
-                  <GroupedColumnHeaderRow
-                    key={index}
-                    rowIdx={index + 1}
-                    level={-groupedColumnHeaderRowsCount + index}
-                    columns={getRowViewportColumns(minRowIdx + index)}
-                    selectedCellIdx={
-                      selectedPosition.rowIdx === minRowIdx + index
-                        ? selectedPosition.idx
-                        : undefined
-                    }
-                    selectCell={selectHeaderCellLatest}
-                  />
-                ),
+        >
+          <DataGridDefaultRenderersProvider value={defaultGridComponents}>
+            <RowSelectionChangeProvider value={selectRowLatest}>
+              <RowSelectionProvider value={allRowsSelected}>
+                {Array.from(
+                  { length: groupedColumnHeaderRowsCount },
+                  (_, index) => (
+                    <GroupedColumnHeaderRow
+                      key={index}
+                      rowIdx={index + 1}
+                      level={-groupedColumnHeaderRowsCount + index}
+                      columns={getRowViewportColumns(minRowIdx + index)}
+                      selectedCellIdx={
+                        selectedPosition.rowIdx === minRowIdx + index
+                          ? selectedPosition.idx
+                          : undefined
+                      }
+                      selectCell={selectHeaderCellLatest}
+                    />
+                  ),
+                )}
+                <HeaderRow
+                  rowIdx={headerRowsCount}
+                  columns={getRowViewportColumns(mainHeaderRowIdx)}
+                  onColumnResize={handleColumnResizeLatest}
+                  onColumnsReorder={onColumnsReorderLatest}
+                  sortColumns={sortColumns}
+                  onSortColumnsChange={onSortChange}
+                  selectedCellIdx={
+                    selectedPosition.rowIdx === mainHeaderRowIdx
+                      ? selectedPosition.idx
+                      : undefined
+                  }
+                  selectCell={selectHeaderCellLatest}
+                  shouldFocusGrid={!selectedCellIsWithinSelectionBounds}
+                  direction={direction}
+                  rowSelectionType={rowSelectionType}
+                  filters={filters}
+                  onFiltersChange={onFiltersChangeLatest}
+                  lastLeftFixedColumnIndex={lastLeftFixedColumnIndex}
+                  showBorder={showBorder}
+                  onInsertCell={onInsertCell}
+                  onDeleteCells={onDeleteCells}
+                  onRenameColumn={onRenameColumn}
+                  onLocalFiltersChange={onLocalFiltersChangeLatest}
+                  saveVersionHistory={saveVersionHistory}
+                  rowCount={rows.length}
+                  onSerialNoRowHeaderClick={selectSerialNoRow}
+                  selectedPosition={selectedPosition as SelectCellState}
+                  draggedOverCellIdx={draggedOverCellIdx as number}
+                />
+              </RowSelectionProvider>
+              {rows.length === 0 && noRowsFallback ? (
+                noRowsFallback
+              ) : (
+                <>
+                  {topSummaryRows?.map((row, rowIdx) => {
+                    const gridRowStart = headerRowsCount + 1 + rowIdx;
+                    const summaryRowIdx = mainHeaderRowIdx + 1 + rowIdx;
+                    const isSummaryRowSelected =
+                      selectedPosition.rowIdx === summaryRowIdx;
+                    const top = headerRowsHeight + summaryRowHeight * rowIdx;
+
+                    return (
+                      <SummaryRow
+                        key={rowIdx}
+                        aria-rowindex={gridRowStart}
+                        rowIdx={summaryRowIdx}
+                        gridRowStart={gridRowStart}
+                        row={row}
+                        top={top}
+                        bottom={undefined}
+                        viewportColumns={getRowViewportColumns(summaryRowIdx)}
+                        selectedCellIdx={
+                          isSummaryRowSelected
+                            ? selectedPosition.idx
+                            : undefined
+                        }
+                        isTop
+                        selectCell={selectCellLatest}
+                        lastLeftFixedColumnIndex={lastLeftFixedColumnIndex}
+                        showBorder={rowIdx === topSummaryRowsCount - 1}
+                        rowKeyId={rowKeyId}
+                      />
+                    );
+                  })}
+                  {getViewportRows()}
+                  {bottomSummaryRows?.map((row, rowIdx) => {
+                    const gridRowStart =
+                      headerAndTopSummaryRowsCount + rows.length + rowIdx + 1;
+                    const summaryRowIdx = rows.length + rowIdx;
+                    const isSummaryRowSelected =
+                      selectedPosition.rowIdx === summaryRowIdx;
+                    const top =
+                      clientHeight > totalRowHeight
+                        ? gridHeight -
+                          summaryRowHeight * (bottomSummaryRows.length - rowIdx)
+                        : undefined;
+                    const bottom =
+                      top === undefined
+                        ? summaryRowHeight *
+                          (bottomSummaryRows.length - 1 - rowIdx)
+                        : undefined;
+
+                    return (
+                      <SummaryRow
+                        aria-rowindex={
+                          ariaRowCount - bottomSummaryRowsCount + rowIdx + 1
+                        }
+                        key={rowIdx}
+                        rowIdx={summaryRowIdx}
+                        gridRowStart={gridRowStart}
+                        row={row}
+                        top={top}
+                        bottom={bottom}
+                        viewportColumns={getRowViewportColumns(summaryRowIdx)}
+                        selectedCellIdx={
+                          isSummaryRowSelected
+                            ? selectedPosition.idx
+                            : undefined
+                        }
+                        isTop={false}
+                        selectCell={selectCellLatest}
+                        lastLeftFixedColumnIndex={lastLeftFixedColumnIndex}
+                        showBorder={rowIdx === 0}
+                        rowKeyId={rowKeyId}
+                      />
+                    );
+                  })}
+                </>
               )}
-              <HeaderRow
-                rowIdx={headerRowsCount}
-                columns={getRowViewportColumns(mainHeaderRowIdx)}
-                onColumnResize={handleColumnResizeLatest}
-                onColumnsReorder={onColumnsReorderLatest}
-                sortColumns={sortColumns}
-                onSortColumnsChange={onSortChange}
-                selectedCellIdx={
-                  selectedPosition.rowIdx === mainHeaderRowIdx
-                    ? selectedPosition.idx
-                    : undefined
-                }
-                selectCell={selectHeaderCellLatest}
-                shouldFocusGrid={!selectedCellIsWithinSelectionBounds}
-                direction={direction}
-                rowSelectionType={rowSelectionType}
-                filters={filters}
-                onFiltersChange={onFiltersChangeLatest}
-                lastLeftFixedColumnIndex={lastLeftFixedColumnIndex}
-                showBorder={showBorder}
+            </RowSelectionChangeProvider>
+          </DataGridDefaultRenderersProvider>
+
+          {renderDragHandle()}
+
+          {/* render empty cells that span only 1 column so we can safely measure column widths, regardless of colSpan */}
+          {renderMeasuringCells(viewportColumns)}
+
+          {/* extra div is needed for row navigation in a treegrid */}
+          {isTreeGrid && (
+            <StyledTreeGridWrapper
+              ref={focusSinkRef}
+              tabIndex={isGroupRowFocused ? 0 : -1}
+              className={clsx('focus-sink', {
+                'focus-sink-header-summary': !isRowIdxWithinViewportBounds(
+                  selectedPosition.rowIdx,
+                ),
+                'row-selected': isGroupRowFocused,
+                'row-selected-frozen':
+                  isGroupRowFocused && lastLeftFixedColumnIndex !== -1,
+              })}
+              style={{
+                gridRowStart:
+                  selectedPosition.rowIdx + headerAndTopSummaryRowsCount + 1,
+              }}
+            />
+          )}
+
+          {scrollToPosition !== null && (
+            <ScrollToCell
+              scrollToPosition={scrollToPosition}
+              setScrollToCellPosition={setScrollToPosition}
+              gridElement={gridRef.current!}
+            />
+          )}
+        </StyledDataGrid>
+        <StyledScrollbar style={{ bottom: hidePagination ? 0 : 72 }}>
+          <SimpleBar
+            ref={scrollRef}
+            scrollableNodeProps={{ ref: scrollableNodeRef }}
+          >
+            <div
+              className='scrollbar-content'
+              style={{ width: gridRef?.current?.scrollWidth }}
+            />
+          </SimpleBar>
+        </StyledScrollbar>
+
+        {allowGridActions && (
+          <Fragment>
+            {gridConfig.allowRangeSelection && (
+              <FooterRow
+                selectedPosition={selectedPosition as SelectCellState}
+                draggedOverCellIdx={draggedOverCellIdx!}
+                draggedOverRowIdx={draggedOverRowIdx!}
+                rows={rows}
+                columns={columns}
+              />
+            )}
+
+            {gridConfig.allowContextMenu && (
+              <ContextWindow
+                onCloseModal={onCloseContextModal}
+                selectedPosition={selectedPosition as SelectCellState}
+                draggedOverCellIdx={draggedOverCellIdx!}
+                draggedOverRowIdx={draggedOverRowIdx!}
+                rows={rows}
+                columns={columns}
+                onInsertRows={onInsertRows}
+                onDeleteRows={onDeleteRows}
                 onInsertCell={onInsertCell}
                 onDeleteCells={onDeleteCells}
-                onRenameColumn={onRenameColumn}
-                onLocalFiltersChange={onLocalFiltersChangeLatest}
+                canUndo={undoRef.current?.length > 1}
+                onUndo={onUndo}
+                canRedo={redoRef.current?.length > 0}
+                onRedo={onRedo}
+                onCut={() => handleGridCopy(handleGridCut)}
+                onCopy={() => handleGridCopy()}
+                onPaste={() => handleGridPaste()}
+                open={openContextMenu}
                 saveVersionHistory={saveVersionHistory}
-                rowCount={rows.length}
-                onSerialNoRowHeaderClick={selectSerialNoRow}
-                selectedPosition={selectedPosition as SelectCellState}
-                draggedOverCellIdx={draggedOverCellIdx as number}
               />
-            </RowSelectionProvider>
-            {rows.length === 0 && noRowsFallback ? (
-              noRowsFallback
-            ) : (
-              <>
-                {topSummaryRows?.map((row, rowIdx) => {
-                  const gridRowStart = headerRowsCount + 1 + rowIdx;
-                  const summaryRowIdx = mainHeaderRowIdx + 1 + rowIdx;
-                  const isSummaryRowSelected =
-                    selectedPosition.rowIdx === summaryRowIdx;
-                  const top = headerRowsHeight + summaryRowHeight * rowIdx;
-
-                  return (
-                    <SummaryRow
-                      key={rowIdx}
-                      aria-rowindex={gridRowStart}
-                      rowIdx={summaryRowIdx}
-                      gridRowStart={gridRowStart}
-                      row={row}
-                      top={top}
-                      bottom={undefined}
-                      viewportColumns={getRowViewportColumns(summaryRowIdx)}
-                      selectedCellIdx={
-                        isSummaryRowSelected ? selectedPosition.idx : undefined
-                      }
-                      isTop
-                      selectCell={selectCellLatest}
-                      lastLeftFixedColumnIndex={lastLeftFixedColumnIndex}
-                      showBorder={rowIdx === topSummaryRowsCount - 1}
-                      rowKeyId={rowKeyId}
-                    />
-                  );
-                })}
-                {getViewportRows()}
-                {bottomSummaryRows?.map((row, rowIdx) => {
-                  const gridRowStart =
-                    headerAndTopSummaryRowsCount + rows.length + rowIdx + 1;
-                  const summaryRowIdx = rows.length + rowIdx;
-                  const isSummaryRowSelected =
-                    selectedPosition.rowIdx === summaryRowIdx;
-                  const top =
-                    clientHeight > totalRowHeight
-                      ? gridHeight -
-                        summaryRowHeight * (bottomSummaryRows.length - rowIdx)
-                      : undefined;
-                  const bottom =
-                    top === undefined
-                      ? summaryRowHeight *
-                        (bottomSummaryRows.length - 1 - rowIdx)
-                      : undefined;
-
-                  return (
-                    <SummaryRow
-                      aria-rowindex={
-                        ariaRowCount - bottomSummaryRowsCount + rowIdx + 1
-                      }
-                      key={rowIdx}
-                      rowIdx={summaryRowIdx}
-                      gridRowStart={gridRowStart}
-                      row={row}
-                      top={top}
-                      bottom={bottom}
-                      viewportColumns={getRowViewportColumns(summaryRowIdx)}
-                      selectedCellIdx={
-                        isSummaryRowSelected ? selectedPosition.idx : undefined
-                      }
-                      isTop={false}
-                      selectCell={selectCellLatest}
-                      lastLeftFixedColumnIndex={lastLeftFixedColumnIndex}
-                      showBorder={rowIdx === 0}
-                      rowKeyId={rowKeyId}
-                    />
-                  );
-                })}
-              </>
             )}
-          </RowSelectionChangeProvider>
-        </DataGridDefaultRenderersProvider>
 
-        {renderDragHandle()}
+            {gridConfig.allowFindReplace && findReplaceModalOpen && (
+              <FindAndReplace
+                open={findReplaceModalOpen}
+                findString={findString}
+                onClose={() => {
+                  setFindReplaceModalOpen(false);
+                  setFindString('');
+                }}
+                rows={rows}
+                columns={columns}
+                setSelectedPosition={(position) => {
+                  setSelectedPosition(position);
+                  setDraggedOverCellIdx(undefined);
+                  setDraggedOverRowIdx(undefined);
+                }}
+                setScrollToPosition={setScrollToPosition}
+                onRowsChange={onRowsChange}
+                rowKeyId={rowKeyId}
+              />
+            )}
 
-        {/* render empty cells that span only 1 column so we can safely measure column widths, regardless of colSpan */}
-        {renderMeasuringCells(viewportColumns)}
-
-        {/* extra div is needed for row navigation in a treegrid */}
-        {isTreeGrid && (
-          <StyledTreeGridWrapper
-            ref={focusSinkRef}
-            tabIndex={isGroupRowFocused ? 0 : -1}
-            className={clsx('focus-sink', {
-              'focus-sink-header-summary': !isRowIdxWithinViewportBounds(
-                selectedPosition.rowIdx,
-              ),
-              'row-selected': isGroupRowFocused,
-              'row-selected-frozen':
-                isGroupRowFocused && lastLeftFixedColumnIndex !== -1,
-            })}
-            style={{
-              gridRowStart:
-                selectedPosition.rowIdx + headerAndTopSummaryRowsCount + 1,
-            }}
-          />
+            {gridConfig.allowFindRecord && (
+              <FindRecord
+                isOpen={openFindBox}
+                setFindString={setFindString}
+                rows={rows}
+                columns={columns}
+                setSelectedPosition={(position) => {
+                  setSelectedPosition(position);
+                  setDraggedOverCellIdx(undefined);
+                  setDraggedOverRowIdx(undefined);
+                }}
+                setScrollToPosition={setScrollToPosition}
+                onMoreOptionsClick={() => {
+                  setFindReplaceModalOpen(true);
+                  setOpenFindBox(false);
+                }}
+                onClose={() => setOpenFindBox(false)}
+                rowKeyId={rowKeyId}
+              />
+            )}
+          </Fragment>
         )}
-
-        {scrollToPosition !== null && (
-          <ScrollToCell
-            scrollToPosition={scrollToPosition}
-            setScrollToCellPosition={setScrollToPosition}
-            gridElement={gridRef.current!}
-          />
-        )}
-      </StyledDataGrid>
-      <StyledScrollbar style={{ bottom: hidePagination ? 0 : 72 }}>
-        <SimpleBar
-          ref={scrollRef}
-          scrollableNodeProps={{ ref: scrollableNodeRef }}
-        >
-          <div
-            className='scrollbar-content'
-            style={{ width: gridRef?.current?.scrollWidth }}
-          />
-        </SimpleBar>
-      </StyledScrollbar>
-
-      <FooterRow
-        selectedPosition={selectedPosition as SelectCellState}
-        draggedOverCellIdx={draggedOverCellIdx!}
-        draggedOverRowIdx={draggedOverRowIdx!}
-        rows={rows}
-        columns={columns}
-      />
-
-      <ContextWindow
-        onCloseModal={onCloseContextModal}
-        selectedPosition={selectedPosition as SelectCellState}
-        draggedOverCellIdx={draggedOverCellIdx!}
-        draggedOverRowIdx={draggedOverRowIdx!}
-        rows={rows}
-        columns={columns}
-        onInsertRows={onInsertRows}
-        onDeleteRows={onDeleteRows}
-        onInsertCell={onInsertCell}
-        onDeleteCells={onDeleteCells}
-        canUndo={undoRef.current?.length > 1}
-        onUndo={onUndo}
-        canRedo={redoRef.current?.length > 0}
-        onRedo={onRedo}
-        onCut={() => handleGridCopy(handleGridCut)}
-        onCopy={() => handleGridCopy()}
-        onPaste={() => handleGridPaste()}
-        open={openContextMenu}
-        saveVersionHistory={saveVersionHistory}
-      />
-      {findReplaceModalOpen && (
-        <FindAndReplace
-          open={findReplaceModalOpen}
-          findString={findString}
-          onClose={() => {
-            setFindReplaceModalOpen(false);
-            setFindString('');
-          }}
-          rows={rows}
-          columns={columns}
-          setSelectedPosition={(position) => {
-            setSelectedPosition(position);
-            setDraggedOverCellIdx(undefined);
-            setDraggedOverRowIdx(undefined);
-          }}
-          setScrollToPosition={setScrollToPosition}
-          onRowsChange={onRowsChange}
-          rowKeyId={rowKeyId}
-        />
-      )}
-
-      <FindRecord
-        isOpen={openFindBox}
-        setFindString={setFindString}
-        rows={rows}
-        columns={columns}
-        setSelectedPosition={(position) => {
-          setSelectedPosition(position);
-          setDraggedOverCellIdx(undefined);
-          setDraggedOverRowIdx(undefined);
-        }}
-        setScrollToPosition={setScrollToPosition}
-        onMoreOptionsClick={() => {
-          setFindReplaceModalOpen(true);
-          setOpenFindBox(false);
-        }}
-        onClose={() => setOpenFindBox(false)}
-        rowKeyId={rowKeyId}
-      />
+      </DataGridProvider>
     </React.Fragment>
   );
 }
