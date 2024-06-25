@@ -10,35 +10,45 @@
 [size-url]: https://bundlephobia.com/package/mi-grid
 [type-badge]: https://img.shields.io/npm/types/mi-grid -->
 
-<!-- 
 ## Features
 
-- [React 18.0+](package.json) support
+The standard set of features availble which is expected from any grid:
+
+- Column Interactions (resize, reorder, and pin columns)
+- Pagination
+- Sorting
+- Filtering
+- Row Selection
+- Frozen columns
+- Column resizing
+- Multi-column sorting
+- Column spanning
+- Column grouping
+- Row selection
+- Row grouping
+- Summary rows
+- Add and remove rows and columns
+- Dynamic row heights
+- No rows fallback
+- Find and Replace
+- Cell formatting
+- Adding Formula to cell
+- Cell editing
+- Cell copy / pasting
+- Cell value dragging / filling
+- Customizable Renderers
+- Right-to-left (RTL) support
+
+
+<!-- - [React 18.0+](package.json) support
 - [Evergreen browsers and server-side rendering](browserslist) support
 - Great performance thanks to virtualization: columns and rows outside the viewport are not rendered
 - Strictly typed with TypeScript
 - [Keyboard accessibility](<(https://adazzle.github.io/react-data-grid/#/common-features)>)
-- Light and dark mode support out of the box. The light or dark themes can be enforced using the `rdg-light` or `rdg-dark` classes.
-- [Frozen columns](https://adazzle.github.io/react-data-grid/#/common-features)
-- [Column resizing](https://adazzle.github.io/react-data-grid/#/common-features)
-- [Multi-column sorting](https://adazzle.github.io/react-data-grid/#/common-features)
-  - Click on a sortable column header to toggle between its ascending/descending sort order
-  - Ctrl+Click / Meta+Click to sort an additional column
-- [Column spanning](https://adazzle.github.io/react-data-grid/#/column-spanning)
-- [Column grouping](https://adazzle.github.io/react-data-grid/#/column-grouping)
-- [Row selection](https://adazzle.github.io/react-data-grid/#/common-features)
-- [Row grouping](https://adazzle.github.io/react-data-grid/#/row-grouping)
-- [Summary rows](https://adazzle.github.io/react-data-grid/#/common-features)
-- [Dynamic row heights](https://adazzle.github.io/react-data-grid/#/variable-row-height)
-- [No rows fallback](https://adazzle.github.io/react-data-grid/#/no-rows)
-- [Cell formatting](https://adazzle.github.io/react-data-grid/#/common-features)
-- [Cell editing](https://adazzle.github.io/react-data-grid/#/common-features)
-- [Cell copy / pasting](https://adazzle.github.io/react-data-grid/#/all-features)
-- [Cell value dragging / filling](https://adazzle.github.io/react-data-grid/#/all-features)
-- [Customizable Renderers](https://adazzle.github.io/react-data-grid/#/customizable-renderers)
-- Right-to-left (RTL) support. We recommend using Firefox as Chrome has a [bug](https://bugs.chromium.org/p/chromium/issues/detail?id=1140374) with frozen columns, and the [`:dir` pseudo class](https://developer.mozilla.org/en-US/docs/Web/CSS/:dir) is not supported
+- Light and dark mode support out of the box. The light or dark themes can be enforced using the `rdg-light` or `rdg-dark` classes. -->
 
-## Links
+
+<!-- ## Links
 
 - [Examples website](https://adazzle.github.io/react-data-grid/)
   - [Source code](website)
