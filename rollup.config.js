@@ -12,16 +12,16 @@ export default [
     input: './src/index.ts',
     output: [
       {
-        file: './lib/bundle.js',
+        file: './dist/bundle.js',
         format: 'es',
         generatedCode: 'es2015',
-        sourcemap: true,
+        sourcemap: devMode,
       },
       {
-        file: './lib/bundle.cjs',
+        file: './dist/bundle.cjs',
         format: 'cjs',
         generatedCode: 'es2015',
-        sourcemap: true,
+        sourcemap: devMode,
       },
     ],
     external: (id) => !id.startsWith('.') && !isAbsolute(id),
@@ -50,7 +50,7 @@ export default [
     input: './constants/models/MiTable/index.ts',
     output: [
       {
-        file: 'lib/index.d.ts',
+        file: 'dist/index.d.ts',
         format: 'es',
         plugins: [],
       },

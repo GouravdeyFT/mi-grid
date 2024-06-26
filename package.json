@@ -5,18 +5,18 @@
   "type": "module",
   "exports": {
     ".": {
-      "types": "./lib/index.d.ts",
-      "module": "./lib/bundle.js",
-      "require": "./lib/bundle.cjs",
-      "default": "./lib/bundle.js"
+      "types": "./dist/index.d.ts",
+      "module": "./dist/bundle.js",
+      "require": "./dist/bundle.cjs",
+      "default": "./dist/bundle.js"
     }
   },
-  "browser": "./lib/bundle.js",
-  "main": "./lib/bundle.cjs",
-  "module": "./lib/bundle.js",
-  "types": "./lib/index.d.ts",
+  "browser": "./dist/bundle.js",
+  "main": "./dist/bundle.cjs",
+  "module": "./dist/bundle.js",
+  "types": "./dist/index.d.ts",
   "files": [
-    "lib"
+    "dist"
   ],
   "scripts": {
     "build": "rollup -c --environment NODE_ENV:production",
